@@ -137,6 +137,40 @@ test('filters transactions and computes totals from the same filter set', async 
   });
 });
 
+test('paginates transactions after filters and keeps legacy list responses when pagination is omitted', async () => {
+  for (const [title, date, category] of [
+    ['First', '2026-10-01', 'Work'],
+    ['Second', '2026-10-02', 'Food'],
+    ['Third', '2026-10-03', 'Work'],
+  ]) {
+    await request('/api/transactions', {
+      method: 'POST',
+      body: JSON.stringify(transaction({ title, date, category })),
+    });
+  }
+
+  const legacyResponse = await request('/api/transactions');
+  assert.ok(Array.isArray(await legacyResponse.json()));
+
+  const firstPageResponse = await request('/api/transactions?month=2026-10&page=1&pageSize=2');
+  assert.equal(firstPageResponse.status, 200);
+  const firstPage = await firstPageResponse.json();
+  assert.deepEqual(firstPage.items.map((item) => item.title), ['Third', 'Second']);
+  assert.equal(firstPage.total, 3);
+  assert.equal(firstPage.page, 1);
+  assert.equal(firstPage.pageSize, 2);
+  assert.equal(firstPage.totalPages, 2);
+
+  const filteredPage = await request('/api/transactions?category=Work&page=1&pageSize=1');
+  const filteredResult = await filteredPage.json();
+  assert.equal(filteredResult.total, 2);
+  assert.deepEqual(filteredResult.items.map((item) => item.title), ['Third']);
+
+  const lastPage = await (await request('/api/transactions?page=99&pageSize=2')).json();
+  assert.equal(lastPage.page, 2);
+  assert.deepEqual(lastPage.items.map((item) => item.title), ['First']);
+});
+
 test('returns daily and monthly cash-flow buckets for the requested period', async () => {
   await request('/api/transactions', {
     method: 'POST',
@@ -207,6 +241,14 @@ test('rejects invalid transaction input and invalid filters with JSON errors', a
   const invalidCashFlowPeriod = await request('/api/analytics/cash-flow?period=week');
   assert.equal(invalidCashFlowPeriod.status, 400);
   assert.deepEqual(await invalidCashFlowPeriod.json(), { error: 'Period must be day or month.' });
+
+  const invalidPage = await request('/api/transactions?page=0');
+  assert.equal(invalidPage.status, 400);
+  assert.deepEqual(await invalidPage.json(), { error: 'Page must be a positive integer.' });
+
+  const invalidPageSize = await request('/api/transactions?pageSize=101');
+  assert.equal(invalidPageSize.status, 400);
+  assert.deepEqual(await invalidPageSize.json(), { error: 'Page size must be 100 or fewer.' });
 });
 
 test('returns 404 for missing transactions', async () => {

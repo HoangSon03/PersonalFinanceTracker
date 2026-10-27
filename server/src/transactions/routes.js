@@ -5,12 +5,14 @@ import {
   validateCashFlowQuery,
   validateFilters,
   validateId,
+  validateTransactionListQuery,
   validateTransaction,
 } from '../validation.js';
 
 export function createTransactionRouter(service) {
   const router = Router();
 
+  // Route giữ trách nhiệm validate HTTP input và chuyển việc nghiệp vụ cho service.
   router.get('/categories', (_request, response) => {
     response.json(service.categories());
   });
@@ -32,7 +34,8 @@ export function createTransactionRouter(service) {
   });
 
   router.get('/transactions', (request, response) => {
-    response.json(service.list(validateFilters(request.query)));
+    const { filters, pagination } = validateTransactionListQuery(request.query);
+    response.json(service.list(filters, pagination));
   });
 
   router.get('/summary', (request, response) => {
@@ -40,6 +43,7 @@ export function createTransactionRouter(service) {
   });
 
   router.get('/analytics/cash-flow', (request, response) => {
+    // Tách period khỏi bộ lọc để service/repository nhận đúng hai phần dữ liệu.
     const { period, ...filters } = validateCashFlowQuery(request.query);
     response.json(service.cashFlow(period, filters));
   });

@@ -51,6 +51,7 @@ client/src/
 
 `App.jsx` owns state and callbacks. Child components receive props and emit user actions; API calls stay in `api.js`. The UI does not access SQLite directly. `CategoryManager.jsx` presents category CRUD, while transaction category choices come from the shared category list.
 `CashFlowCharts.jsx` renders the daily/monthly cash-flow analytics using server-aggregated local transaction data. Chart type and date-range presentation stay in the client; aggregation queries stay in the transaction repository.
+Transaction history is paginated in SQLite after filters and sort order are applied, so the client only receives one bounded page. Dashboard tabs keep the chart view separate from transaction management, and chart analytics are fetched only while that tab is active.
 
 ## Local data and network boundary
 

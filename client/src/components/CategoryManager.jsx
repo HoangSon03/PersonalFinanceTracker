@@ -8,6 +8,7 @@ export default function CategoryManager({
   onRename,
   onDelete,
 }) {
+  // Mặc định thu gọn để khu vực quản lý danh mục không chiếm chỗ khi chỉ cần theo dõi giao dịch.
   const [expanded, setExpanded] = useState(false);
   const [newName, setNewName] = useState('');
   const [editingName, setEditingName] = useState(null);
@@ -15,6 +16,7 @@ export default function CategoryManager({
 
   async function submitNewCategory(event) {
     event.preventDefault();
+    // Chỉ xóa nội dung nhập sau khi server xác nhận thêm thành công để còn sửa khi gặp lỗi.
     if (await onCreate(newName)) {
       setNewName('');
     }
@@ -22,6 +24,7 @@ export default function CategoryManager({
 
   async function submitRename(event) {
     event.preventDefault();
+    // Giữ chế độ sửa nếu API từ chối (ví dụ tên trùng) để người dùng thử lại dễ dàng.
     if (await onRename(editingName, renamedValue)) {
       setEditingName(null);
       setRenamedValue('');

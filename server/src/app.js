@@ -6,6 +6,7 @@ import { createTransactionService } from './transactions/service.js';
 
 export function createApp(database) {
   const app = express();
+  // Giới hạn body ở lớp HTTP để request JSON quá lớn bị từ chối trước khi vào nghiệp vụ.
   app.use(express.json({ limit: '16kb' }));
   const transactionService = createTransactionService(createTransactionRepository(database));
 
@@ -20,6 +21,7 @@ export function createApp(database) {
   });
 
   app.use((error, _request, response, _next) => {
+    // Chuyển lỗi đã biết thành JSON an toàn; lỗi không dự kiến vẫn được ghi log và trả 500.
     if (error instanceof ApiError) {
       response.status(error.status).json({ error: error.message });
       return;

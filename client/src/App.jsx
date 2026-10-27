@@ -16,6 +16,7 @@ import TransactionForm from './components/TransactionForm.jsx';
 import TransactionList from './components/TransactionList.jsx';
 
 const CashFlowCharts = lazy(() => import('./components/CashFlowCharts.jsx'));
+const transactionPageSize = 20;
 
 function currentMonth() {
   const date = new Date();
@@ -41,6 +42,14 @@ const emptyForm = () => ({
 
 export default function App() {
   const [filters, setFilters] = useState({ month: currentMonth(), type: '', category: '' });
+  const [page, setPage] = useState(1);
+  const [pagination, setPagination] = useState({
+    total: 0,
+    page: 1,
+    pageSize: transactionPageSize,
+    totalPages: 1,
+  });
+  const [activeTab, setActiveTab] = useState('transactions');
   const [transactions, setTransactions] = useState([]);
   const [categories, setCategories] = useState([]);
   const [cashFlow, setCashFlow] = useState([]);
@@ -58,16 +67,21 @@ export default function App() {
   const [formError, setFormError] = useState('');
   const [categoryError, setCategoryError] = useState('');
 
-  const refresh = useCallback(async (signal) => {
+  const refresh = useCallback(async (signal, queryFilters = filters, requestedPage = page) => {
     setLoading(true);
     setError('');
     try {
-      const [items, totals, availableCategories] = await Promise.all([
-        getTransactions(filters, signal),
-        getSummary(filters, signal),
+      // Tải danh sách, tổng kết và category cùng một bộ lọc để dashboard không hiển thị lệch dữ liệu.
+      const [transactionPage, totals, availableCategories] = await Promise.all([
+        getTransactions({ ...queryFilters, page: requestedPage, pageSize: transactionPageSize }, signal),
+        getSummary(queryFilters, signal),
         getCategories(signal),
       ]);
-      setTransactions(items);
+      setTransactions(transactionPage.items);
+      setPagination(transactionPage);
+      if (transactionPage.page !== requestedPage) {
+        setPage(transactionPage.page);
+      }
       setSummary(totals);
       setCategories(availableCategories);
     } catch (requestError) {
@@ -79,15 +93,21 @@ export default function App() {
         setLoading(false);
       }
     }
-  }, [filters]);
+  }, [filters, page]);
 
   useEffect(() => {
+    // Hủy lần tải trước khi đổi bộ lọc để response cũ không ghi đè dữ liệu mới.
     const controller = new AbortController();
     refresh(controller.signal);
     return () => controller.abort();
   }, [refresh]);
 
   useEffect(() => {
+    if (activeTab !== 'charts') {
+      return undefined;
+    }
+
+    // Biểu đồ dùng bộ lọc loại/category nhưng tự quản lý 30 ngày hoặc 12 tháng, độc lập bộ lọc tháng.
     const controller = new AbortController();
     setCashFlowLoading(true);
     setCashFlowError('');
@@ -109,7 +129,7 @@ export default function App() {
       });
 
     return () => controller.abort();
-  }, [chartPeriod, filters.type, filters.category, cashFlowRevision]);
+  }, [activeTab, chartPeriod, filters.type, filters.category, cashFlowRevision]);
 
   const filterDescription = useMemo(() => {
     if (!filters.month) {
@@ -122,6 +142,12 @@ export default function App() {
 
   function changeFilter(field, value) {
     setFilters((previous) => ({ ...previous, [field]: value }));
+    setPage(1);
+  }
+
+  function clearFilters() {
+    setFilters({ month: '', type: '', category: '' });
+    setPage(1);
   }
 
   function changeForm(field, value) {
@@ -155,8 +181,10 @@ export default function App() {
     try {
       await saveTransaction({ ...form, amount: Number(form.amount) }, editingId);
       resetForm();
+      setPage(1);
+      // Giao dịch vừa lưu có thể làm thay đổi bucket ngày/tháng hiện đang xem.
       setCashFlowRevision((revision) => revision + 1);
-      await refresh();
+      await refresh(undefined, filters, 1);
     } catch (requestError) {
       setFormError(requestError.message);
     } finally {
@@ -172,6 +200,7 @@ export default function App() {
     setError('');
     try {
       await deleteTransaction(transaction.id);
+      // Xóa giao dịch cũng cần tính lại dữ liệu tổng hợp của biểu đồ.
       setCashFlowRevision((revision) => revision + 1);
       await refresh();
     } catch (requestError) {
@@ -199,11 +228,13 @@ export default function App() {
     setCategoryError('');
     try {
       await renameCategory(oldName, name);
-      setFilters((previous) => ({
-        ...previous,
-        category: previous.category === oldName ? name.trim() : previous.category,
-      }));
-      await refresh();
+      // Giữ bộ lọc hiện tại trỏ tới tên mới nếu người dùng đang lọc category vừa đổi.
+      const nextFilters = {
+        ...filters,
+        category: filters.category === oldName ? name.trim() : filters.category,
+      };
+      setFilters(nextFilters);
+      setPage(1);
       return true;
     } catch (requestError) {
       setCategoryError(requestError.message);
@@ -222,11 +253,13 @@ export default function App() {
     setCategoryError('');
     try {
       await deleteCategory(name);
-      setFilters((previous) => ({
-        ...previous,
-        category: previous.category === name ? '' : previous.category,
-      }));
-      await refresh();
+      // Xóa bộ lọc category nếu nó vừa bị xóa để danh sách không mắc ở giá trị không còn tồn tại.
+      const nextFilters = {
+        ...filters,
+        category: filters.category === name ? '' : filters.category,
+      };
+      setFilters(nextFilters);
+      setPage(1);
     } catch (requestError) {
       setCategoryError(requestError.message);
     } finally {
@@ -252,53 +285,86 @@ export default function App() {
 
       <SummaryCards summary={summary} filterDescription={filterDescription} />
 
-      <Suspense
-        fallback={(
-          <section className="panel cash-flow-panel" aria-label="Cash flow chart">
-            <div className="chart-state" role="status">Loading chart…</div>
-          </section>
+      <div className="dashboard-tabs" role="tablist" aria-label="Dashboard sections">
+        <button
+          id="dashboard-tab-transactions"
+          className={activeTab === 'transactions' ? 'selected' : ''}
+          type="button"
+          role="tab"
+          aria-selected={activeTab === 'transactions'}
+          aria-controls="dashboard-panel"
+          onClick={() => setActiveTab('transactions')}
+        >
+          Transactions
+        </button>
+        <button
+          id="dashboard-tab-charts"
+          className={activeTab === 'charts' ? 'selected' : ''}
+          type="button"
+          role="tab"
+          aria-selected={activeTab === 'charts'}
+          aria-controls="dashboard-panel"
+          onClick={() => setActiveTab('charts')}
+        >
+          Charts
+        </button>
+      </div>
+
+      <div id="dashboard-panel" className="dashboard-panel" role="tabpanel" aria-labelledby={`dashboard-tab-${activeTab}`}>
+        {activeTab === 'charts' ? (
+          <Suspense
+            fallback={(
+              <section className="panel cash-flow-panel" aria-label="Cash flow chart">
+                <div className="chart-state" role="status">Loading chart…</div>
+              </section>
+            )}
+          >
+            <CashFlowCharts
+              data={cashFlow}
+              period={chartPeriod}
+              loading={cashFlowLoading}
+              error={cashFlowError}
+              onPeriodChange={setChartPeriod}
+            />
+          </Suspense>
+        ) : (
+          <>
+            <CategoryManager
+              categories={categories}
+              busy={categoryBusy}
+              error={categoryError}
+              onCreate={addCategory}
+              onRename={updateCategory}
+              onDelete={removeCategory}
+            />
+
+            <div className="content-grid">
+              <TransactionList
+                filters={filters}
+                categories={categories}
+                transactions={transactions}
+                loading={loading}
+                error={error}
+                pagination={pagination}
+                onFilterChange={changeFilter}
+                onClearFilters={clearFilters}
+                onPageChange={setPage}
+                onEdit={startEditing}
+                onDelete={removeTransaction}
+              />
+              <TransactionForm
+                categories={categories}
+                form={form}
+                editing={Boolean(editingId)}
+                saving={saving}
+                error={formError}
+                onChange={changeForm}
+                onSubmit={submitForm}
+                onCancel={resetForm}
+              />
+            </div>
+          </>
         )}
-      >
-        <CashFlowCharts
-          data={cashFlow}
-          period={chartPeriod}
-          loading={cashFlowLoading}
-          error={cashFlowError}
-          onPeriodChange={setChartPeriod}
-        />
-      </Suspense>
-
-      <CategoryManager
-        categories={categories}
-        busy={categoryBusy}
-        error={categoryError}
-        onCreate={addCategory}
-        onRename={updateCategory}
-        onDelete={removeCategory}
-      />
-
-      <div className="content-grid">
-        <TransactionList
-          filters={filters}
-          categories={categories}
-          transactions={transactions}
-          loading={loading}
-          error={error}
-          onFilterChange={changeFilter}
-          onClearFilters={() => setFilters({ month: '', type: '', category: '' })}
-          onEdit={startEditing}
-          onDelete={removeTransaction}
-        />
-        <TransactionForm
-          categories={categories}
-          form={form}
-          editing={Boolean(editingId)}
-          saving={saving}
-          error={formError}
-          onChange={changeForm}
-          onSubmit={submitForm}
-          onCancel={resetForm}
-        />
       </div>
       <footer className="footer">Private by design · Stored locally in your SQLite database</footer>
     </main>

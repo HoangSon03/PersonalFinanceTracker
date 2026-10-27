@@ -26,6 +26,7 @@ const seriesLabels = {
 };
 
 function formatPeriod(value, period) {
+  // Parse giữa trưa theo giờ local để ngày không bị lùi một ngày do lệch múi giờ.
   const date = new Date(`${value}${period === 'day' ? 'T12:00:00' : '-01T12:00:00'}`);
   return date.toLocaleDateString('en-US', period === 'day'
     ? { month: 'short', day: 'numeric' }
@@ -108,6 +109,7 @@ function renderBarChart(data, period, stacked) {
       />
       <Tooltip content={<ChartTooltip period={period} />} />
       <Legend />
+      {/* Thu và chi vẫn là giá trị dương; đường số dư biểu diễn phần thu trừ chi. */}
       <Bar dataKey="income" name={seriesLabels.income} fill="#55ad8a" radius={[3, 3, 0, 0]} stackId={stacked ? 'cash-flow' : undefined} />
       <Bar dataKey="expenses" name={seriesLabels.expenses} fill="#db7975" radius={[3, 3, 0, 0]} stackId={stacked ? 'cash-flow' : undefined} />
       <Line dataKey="balance" name={seriesLabels.balance} stroke="#7180cf" strokeWidth={2} dot={false} activeDot={{ r: 4 }} />
@@ -117,6 +119,7 @@ function renderBarChart(data, period, stacked) {
 
 export default function CashFlowCharts({ data, period, loading, error, onPeriodChange }) {
   const [chartType, setChartType] = useState('line');
+  // API trả cả các kỳ rỗng; chỉ hiện empty state khi không kỳ nào có thu hoặc chi.
   const hasTransactions = data.some((item) => item.income !== 0 || item.expenses !== 0);
 
   return (

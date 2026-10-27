@@ -18,6 +18,7 @@ function validDate(value) {
     return false;
   }
 
+  // Regex kiểm tra hình dạng; round-trip loại ngày không tồn tại như 30/02.
   const parsed = Date.parse(`${value}T00:00:00.000Z`);
   return Number.isFinite(parsed) && new Date(parsed).toISOString().slice(0, 10) === value;
 }
@@ -31,6 +32,7 @@ export function validateTransaction(body) {
     throw new ApiError(400, 'Amount must be a positive number.');
   }
 
+  // Quy đổi tiền về cent nguyên trước khi lưu và từ chối phần lẻ hơn một cent.
   const amountCents = Math.round(body.amount * 100);
   if (
     !Number.isSafeInteger(amountCents)
@@ -106,11 +108,47 @@ export function validateFilters(query) {
   return filters;
 }
 
+export function validateTransactionListQuery(query) {
+  const filters = validateFilters(query);
+  const hasPagination = query.page !== undefined || query.pageSize !== undefined;
+  if (!hasPagination) {
+    return { filters, pagination: null };
+  }
+
+  function positiveInteger(value, field, fallback) {
+    if (value === undefined) {
+      return fallback;
+    }
+
+    if (typeof value !== 'string' || !/^[1-9]\d*$/.test(value)) {
+      throw new ApiError(400, `${field} must be a positive integer.`);
+    }
+
+    const parsed = Number(value);
+    if (!Number.isSafeInteger(parsed)) {
+      throw new ApiError(400, `${field} must be a positive integer.`);
+    }
+    return parsed;
+  }
+
+  const page = positiveInteger(query.page, 'Page', 1);
+  const pageSize = positiveInteger(query.pageSize, 'Page size', 20);
+  if (pageSize > 100) {
+    throw new ApiError(400, 'Page size must be 100 or fewer.');
+  }
+  if (page > Math.floor(Number.MAX_SAFE_INTEGER / pageSize)) {
+    throw new ApiError(400, 'Page is too large.');
+  }
+
+  return { filters, pagination: { page, pageSize } };
+}
+
 export function validateCashFlowQuery(query) {
   if (!['day', 'month'].includes(query.period)) {
     throw new ApiError(400, 'Period must be day or month.');
   }
 
+  // Biểu đồ có khoảng ngày riêng, nên chỉ nhận bộ lọc loại và category, không nhận lọc tháng.
   const filters = validateFilters({ type: query.type, category: query.category });
   return { ...filters, period: query.period };
 }

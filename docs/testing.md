@@ -7,7 +7,7 @@ npm test
 npm run build
 ```
 
-`npm test` runs the Node.js test runner against the backend API. Tests create temporary SQLite databases and cover CRUD, filtering and totals, validation/errors, categories, health, and persistence after reopening. They do not use the personal database under `server/data/`.
+`npm test` runs the Node.js test runner against the backend API. Tests create temporary SQLite databases and cover CRUD, filtering and totals, transaction pagination, validation/errors, categories, health, and persistence after reopening. They do not use the personal database under `server/data/`.
 
 For a browser smoke test, run these commands in separate terminals:
 

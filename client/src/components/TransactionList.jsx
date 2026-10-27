@@ -15,11 +15,16 @@ export default function TransactionList({
   transactions,
   loading,
   error,
+  pagination,
   onFilterChange,
   onClearFilters,
+  onPageChange,
   onEdit,
   onDelete,
 }) {
+  const firstItem = pagination.total === 0 ? 0 : (pagination.page - 1) * pagination.pageSize + 1;
+  const lastItem = Math.min(pagination.page * pagination.pageSize, pagination.total);
+
   return (
     <section className="panel transactions-panel">
       <div className="panel-heading">
@@ -27,7 +32,7 @@ export default function TransactionList({
           <p className="eyebrow">ACTIVITY</p>
           <h2>Transactions</h2>
         </div>
-        <span className="transaction-count">{transactions.length} shown</span>
+        <span className="transaction-count">{pagination.total} total</span>
       </div>
 
       <FilterBar
@@ -83,6 +88,33 @@ export default function TransactionList({
           ))}
         </div>
       )}
+
+      <nav className="pagination" aria-label="Transaction pages">
+        <span className="pagination-summary">
+          Showing {firstItem}–{lastItem} of {pagination.total}
+        </span>
+        <div className="pagination-controls">
+          <button
+            type="button"
+            className="pagination-button"
+            disabled={pagination.page <= 1 || loading}
+            onClick={() => onPageChange(pagination.page - 1)}
+          >
+            Previous
+          </button>
+          <span className="pagination-page">
+            Page {pagination.page} of {pagination.totalPages}
+          </span>
+          <button
+            type="button"
+            className="pagination-button"
+            disabled={pagination.page >= pagination.totalPages || loading}
+            onClick={() => onPageChange(pagination.page + 1)}
+          >
+            Next
+          </button>
+        </div>
+      </nav>
     </section>
   );
 }

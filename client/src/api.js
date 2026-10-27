@@ -10,6 +10,7 @@ async function request(path, options = {}) {
     });
   } catch (error) {
     if (error.name === 'AbortError') {
+      // Giữ nguyên hủy request để các effect React không báo lỗi cho lần tải đã bị thay thế.
       throw error;
     }
     throw new Error('Could not reach the API. Check that the backend is running.');
@@ -23,11 +24,13 @@ async function request(path, options = {}) {
         message = body.error;
       }
     } catch {
-      // Keep the status-based error when the response is not JSON.
+      // Một số lỗi proxy/server không trả JSON; khi đó dùng thông báo kèm HTTP status.
+      // Proxy/server có thể không trả JSON; khi đó giữ thông báo kèm HTTP status.
     }
     throw new Error(message);
   }
 
+  // DELETE trả 204 không có body, các response khác theo hợp đồng đều là JSON.
   return response.status === 204 ? null : response.json();
 }
 
@@ -50,6 +53,7 @@ export function getSummary(filters, signal) {
 }
 
 export function getCashFlow(filters, signal) {
+  // Gửi bộ lọc riêng của biểu đồ qua endpoint tổng hợp, không tải toàn bộ giao dịch về client.
   return request(`/api/analytics/cash-flow?${filterQuery(filters)}`, { signal });
 }
 
