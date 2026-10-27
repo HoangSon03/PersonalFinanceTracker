@@ -22,6 +22,15 @@ export function createDatabase(databasePath = process.env.DATABASE_PATH || defau
       note TEXT NOT NULL DEFAULT ''
     )
   `);
+  database.exec(`
+    CREATE TABLE IF NOT EXISTS categories (
+      name TEXT PRIMARY KEY
+    )
+  `);
+  database.exec(`
+    INSERT OR IGNORE INTO categories (name)
+    SELECT DISTINCT category FROM transactions
+  `);
 
   return database;
 }

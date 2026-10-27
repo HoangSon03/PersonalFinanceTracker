@@ -12,9 +12,9 @@
   },
   "dependencies": {
     "@vitejs/plugin-react": "^4.4.1",
-    "vite": "^6.3.5",
     "react": "^19.0.0",
-    "react-dom": "^19.0.0"
-  },
-  "devDependencies": {}
+    "react-dom": "^19.0.0",
+    "recharts": "^3.10.1",
+    "vite": "^6.3.5"
+  }
 }

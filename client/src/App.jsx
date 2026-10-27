@@ -1,14 +1,21 @@
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { lazy, Suspense, useCallback, useEffect, useMemo, useState } from 'react';
 import {
+  createCategory,
+  deleteCategory,
   deleteTransaction,
+  getCashFlow,
   getCategories,
   getSummary,
   getTransactions,
+  renameCategory,
   saveTransaction,
 } from './api.js';
+import CategoryManager from './components/CategoryManager.jsx';
 import SummaryCards from './components/SummaryCards.jsx';
 import TransactionForm from './components/TransactionForm.jsx';
 import TransactionList from './components/TransactionList.jsx';
+
+const CashFlowCharts = lazy(() => import('./components/CashFlowCharts.jsx'));
 
 function currentMonth() {
   const date = new Date();
@@ -36,13 +43,20 @@ export default function App() {
   const [filters, setFilters] = useState({ month: currentMonth(), type: '', category: '' });
   const [transactions, setTransactions] = useState([]);
   const [categories, setCategories] = useState([]);
+  const [cashFlow, setCashFlow] = useState([]);
+  const [chartPeriod, setChartPeriod] = useState('day');
+  const [cashFlowLoading, setCashFlowLoading] = useState(true);
+  const [cashFlowError, setCashFlowError] = useState('');
+  const [cashFlowRevision, setCashFlowRevision] = useState(0);
   const [summary, setSummary] = useState({ income: 0, expenses: 0, balance: 0 });
   const [form, setForm] = useState(emptyForm);
   const [editingId, setEditingId] = useState(null);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
+  const [categoryBusy, setCategoryBusy] = useState(false);
   const [error, setError] = useState('');
   const [formError, setFormError] = useState('');
+  const [categoryError, setCategoryError] = useState('');
 
   const refresh = useCallback(async (signal) => {
     setLoading(true);
@@ -72,6 +86,30 @@ export default function App() {
     refresh(controller.signal);
     return () => controller.abort();
   }, [refresh]);
+
+  useEffect(() => {
+    const controller = new AbortController();
+    setCashFlowLoading(true);
+    setCashFlowError('');
+    getCashFlow({
+      period: chartPeriod,
+      type: filters.type,
+      category: filters.category,
+    }, controller.signal)
+      .then(setCashFlow)
+      .catch((requestError) => {
+        if (requestError.name !== 'AbortError') {
+          setCashFlowError(requestError.message);
+        }
+      })
+      .finally(() => {
+        if (!controller.signal.aborted) {
+          setCashFlowLoading(false);
+        }
+      });
+
+    return () => controller.abort();
+  }, [chartPeriod, filters.type, filters.category, cashFlowRevision]);
 
   const filterDescription = useMemo(() => {
     if (!filters.month) {
@@ -117,6 +155,7 @@ export default function App() {
     try {
       await saveTransaction({ ...form, amount: Number(form.amount) }, editingId);
       resetForm();
+      setCashFlowRevision((revision) => revision + 1);
       await refresh();
     } catch (requestError) {
       setFormError(requestError.message);
@@ -133,9 +172,65 @@ export default function App() {
     setError('');
     try {
       await deleteTransaction(transaction.id);
+      setCashFlowRevision((revision) => revision + 1);
       await refresh();
     } catch (requestError) {
       setError(requestError.message);
+    }
+  }
+
+  async function addCategory(name) {
+    setCategoryBusy(true);
+    setCategoryError('');
+    try {
+      await createCategory(name);
+      await refresh();
+      return true;
+    } catch (requestError) {
+      setCategoryError(requestError.message);
+      return false;
+    } finally {
+      setCategoryBusy(false);
+    }
+  }
+
+  async function updateCategory(oldName, name) {
+    setCategoryBusy(true);
+    setCategoryError('');
+    try {
+      await renameCategory(oldName, name);
+      setFilters((previous) => ({
+        ...previous,
+        category: previous.category === oldName ? name.trim() : previous.category,
+      }));
+      await refresh();
+      return true;
+    } catch (requestError) {
+      setCategoryError(requestError.message);
+      return false;
+    } finally {
+      setCategoryBusy(false);
+    }
+  }
+
+  async function removeCategory(name) {
+    if (!window.confirm(`Delete category "${name}"?`)) {
+      return;
+    }
+
+    setCategoryBusy(true);
+    setCategoryError('');
+    try {
+      await deleteCategory(name);
+      setFilters((previous) => ({
+        ...previous,
+        category: previous.category === name ? '' : previous.category,
+      }));
+      await refresh();
+    } catch (requestError) {
+      setCategoryError(requestError.message);
+    } finally {
+      setCategoryBusy(false);
     }
   }
 
@@ -156,6 +251,31 @@ export default function App() {
       </section>
 
       <SummaryCards summary={summary} filterDescription={filterDescription} />
+
+      <Suspense
+        fallback={(
+          <section className="panel cash-flow-panel" aria-label="Cash flow chart">
+            <div className="chart-state" role="status">Loading chart…</div>
+          </section>
+        )}
+      >
+        <CashFlowCharts
+          data={cashFlow}
+          period={chartPeriod}
+          loading={cashFlowLoading}
+          error={cashFlowError}
+          onPeriodChange={setChartPeriod}
+        />
+      </Suspense>
+
+      <CategoryManager
+        categories={categories}
+        busy={categoryBusy}
+        error={categoryError}
+        onCreate={addCategory}
+        onRename={updateCategory}
+        onDelete={removeCategory}
+      />
 
       <div className="content-grid">
         <TransactionList

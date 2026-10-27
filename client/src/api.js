@@ -49,8 +49,30 @@ export function getSummary(filters, signal) {
   return request(`/api/summary?${filterQuery(filters)}`, { signal });
 }
 
+export function getCashFlow(filters, signal) {
+  return request(`/api/analytics/cash-flow?${filterQuery(filters)}`, { signal });
+}
+
 export function getCategories(signal) {
   return request('/api/categories', { signal });
+}
+
+export function createCategory(name) {
+  return request('/api/categories', {
+    method: 'POST',
+    body: JSON.stringify({ name }),
+  });
+}
+
+export function renameCategory(oldName, name) {
+  return request(`/api/categories/${encodeURIComponent(oldName)}`, {
+    method: 'PUT',
+    body: JSON.stringify({ name }),
+  });
+}
+
+export function deleteCategory(name) {
+  return request(`/api/categories/${encodeURIComponent(name)}`, { method: 'DELETE' });
 }
 
 export function saveTransaction(transaction, id) {

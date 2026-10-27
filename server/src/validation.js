@@ -67,6 +67,18 @@ export function validateTransaction(body) {
   };
 }
 
+export function validateCategoryName(value) {
+  return requiredText(value, 'Category', 60);
+}
+
+export function validateCategory(body) {
+  if (!body || typeof body !== 'object' || Array.isArray(body)) {
+    throw new ApiError(400, 'Request body must be a JSON object.');
+  }
+
+  return { name: validateCategoryName(body.name) };
+}
+
 export function validateFilters(query) {
   const filters = {};
 
@@ -92,6 +104,15 @@ export function validateFilters(query) {
   }
 
   return filters;
+}
+
+export function validateCashFlowQuery(query) {
+  if (!['day', 'month'].includes(query.period)) {
+    throw new ApiError(400, 'Period must be day or month.');
+  }
+
+  const filters = validateFilters({ type: query.type, category: query.category });
+  return { ...filters, period: query.period };
 }
 
 export function validateId(value) {

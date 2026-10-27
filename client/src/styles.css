@@ -42,6 +42,21 @@ button { cursor: pointer; }
 .expense-card { border-top: 3px solid #db7975; }
 .balance-card { border-top: 3px solid #7787d5; }
 
+.cash-flow-panel { margin-top: 20px; }
+.cash-flow-heading { display: flex; align-items: flex-start; justify-content: space-between; gap: 16px; }
+.cash-flow-heading h2 { margin: 0; font: 700 18px 'Segoe UI', Arial, sans-serif; letter-spacing: -.3px; }
+.cash-flow-description { margin: 7px 0 0; color: var(--muted); font-size: 11px; }
+.chart-period-toggle, .chart-type-tabs { display: inline-flex; gap: 3px; padding: 3px; border: 1px solid #e8edf2; border-radius: 8px; background: #f7f8fb; }
+.chart-period-toggle button, .chart-type-tabs button { padding: 7px 10px; border: 0; border-radius: 6px; background: transparent; color: #697788; font-size: 11px; font-weight: 600; white-space: nowrap; }
+.chart-period-toggle button.selected, .chart-type-tabs button.selected { background: #fff; color: #34475c; box-shadow: 0 1px 3px #1b28381a; }
+.chart-period-toggle button:focus-visible, .chart-type-tabs button:focus-visible { outline: 2px solid #8998dd; outline-offset: 1px; }
+.chart-type-tabs { margin-top: 18px; }
+.cash-flow-chart { width: 100%; height: 320px; margin-top: 12px; }
+.chart-state { display: grid; min-height: 220px; place-items: center; color: var(--muted); font-size: 12px; }
+.chart-tooltip { min-width: 150px; padding: 10px 12px; border: 1px solid var(--line); border-radius: 8px; background: #fff; box-shadow: 0 4px 14px #1b28381a; color: var(--ink); font-size: 11px; }
+.chart-tooltip > strong { display: block; margin-bottom: 7px; }
+.chart-tooltip-row { display: flex; justify-content: space-between; gap: 18px; padding-top: 4px; }
+
 .content-grid { display: grid; grid-template-columns: minmax(0, 1.62fr) minmax(310px, .9fr); align-items: start; gap: 18px; margin-top: 20px; }
 .panel { min-width: 0; padding: 22px; border: 1px solid var(--line); border-radius: 12px; background: #fff; }
 .panel-heading { display: flex; align-items: center; justify-content: space-between; gap: 10px; }
@@ -55,9 +70,30 @@ button { cursor: pointer; }
 .field input, .field select { height: 40px; padding: 0 11px; }
 .field textarea { resize: vertical; padding: 10px 11px; }
 .filters input:focus, .filters select:focus, .field input:focus, .field select:focus, .field textarea:focus { border-color: #8998dd; box-shadow: 0 0 0 3px #8998dd22; }
+.sr-only { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0, 0, 0, 0); white-space: nowrap; clip-path: inset(50%); }
 .text-button { padding: 5px 2px; border: 0; background: none; color: #6275c9; font-size: 11px; font-weight: 600; }
 .text-button:hover { color: #3d51aa; }
 .clear-filters { height: 36px; }
+.category-panel { margin-top: 20px; padding: 0; overflow: hidden; }
+.category-panel > .panel-heading { padding: 22px; }
+.category-toggle { display: inline-flex; align-items: center; gap: 9px; padding: 8px 10px; border: 1px solid #e8edf2; border-radius: 7px; background: #fff; color: #40516a; font-size: 11px; font-weight: 600; }
+.category-toggle:hover { border-color: #cbd3df; background: #f8f9fc; }
+.category-toggle:focus-visible { outline: 3px solid #8998dd; outline-offset: 2px; }
+.category-toggle-icon { color: #788596; font-size: 15px; line-height: 1; }
+#category-management { padding: 0 22px 22px; }
+.category-create-form { display: flex; gap: 9px; margin-top: 17px; }
+.category-create-field { flex: 1; min-width: 0; }
+.category-create-form input, .category-rename-form input { width: 100%; min-width: 0; height: 36px; padding: 0 10px; border: 1px solid #e1e6ed; border-radius: 7px; outline: none; color: var(--ink); font-size: 12px; }
+.category-create-form input:focus, .category-rename-form input:focus { border-color: #8998dd; box-shadow: 0 0 0 3px #8998dd22; }
+.secondary-button { padding: 0 13px; border: 1px solid #dce2eb; border-radius: 7px; background: #fff; color: #40516a; font-size: 11px; font-weight: 600; white-space: nowrap; }
+.secondary-button:hover:not(:disabled) { border-color: #aab5cb; background: #f8f9fc; }
+.secondary-button:disabled, .icon-button:disabled { cursor: wait; opacity: .6; }
+.category-items { display: flex; flex-wrap: wrap; gap: 8px; margin: 15px 0 0; padding: 0; list-style: none; }
+.category-item { display: flex; min-height: 34px; align-items: center; gap: 12px; padding: 5px 9px 5px 11px; border: 1px solid #e8edf2; border-radius: 7px; color: #435165; font-size: 11px; }
+.category-actions { display: flex; gap: 8px; }
+.category-rename-form { display: flex; align-items: center; gap: 8px; }
+.category-rename-form input { width: min(220px, 35vw); height: 28px; }
+.category-empty { margin: 15px 0 0; color: var(--muted); font-size: 11px; }
 .transaction-list { display: flex; flex-direction: column; }
 .transaction-row { display: grid; grid-template-columns: 35px minmax(0, 1fr) auto; align-items: center; column-gap: 11px; padding: 14px 0; border-bottom: 1px solid #eff2f5; }
 .transaction-row:last-child { border-bottom: 0; }
@@ -95,6 +131,9 @@ button { cursor: pointer; }
   .page-shell { padding-right: 25px; padding-left: 25px; }
   .content-grid { grid-template-columns: minmax(0, 1.3fr) minmax(280px, .9fr); }
   .panel { padding: 18px; }
+  .category-panel { padding: 0; }
+  .category-panel > .panel-heading { padding: 18px; }
+  #category-management { padding: 0 18px 18px; }
   .filters { grid-template-columns: 1fr 1fr; }
   .clear-filters { justify-self: start; }
 }
@@ -108,12 +147,19 @@ button { cursor: pointer; }
   .summary-grid { grid-template-columns: 1fr; gap: 10px; }
   .summary-card { min-height: 108px; padding: 15px 17px; }
   .summary-card strong { margin-top: 8px; font-size: 22px; }
+  .cash-flow-heading { flex-direction: column; }
+  .chart-type-tabs { display: flex; width: 100%; }
+  .chart-type-tabs button { flex: 1; padding-right: 5px; padding-left: 5px; }
+  .cash-flow-chart { height: 270px; }
   .content-grid { grid-template-columns: 1fr; }
   .form-panel { position: static; }
 }
 
 @media (max-width: 420px) {
   .panel { padding: 15px; }
+  .category-panel { padding: 0; }
+  .category-panel > .panel-heading { padding: 15px; }
+  #category-management { padding: 0 15px 15px; }
   .filters { grid-template-columns: 1fr 1fr; }
   .filters label:first-child { grid-column: 1 / -1; }
   .transaction-row { grid-template-columns: 31px minmax(0, 1fr); }

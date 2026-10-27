@@ -56,17 +56,16 @@ export default function TransactionForm({
         <div className="field-row">
           <label className="field">
             <span>Category</span>
-            <input
+            <select
               required
-              maxLength="60"
-              list="category-options"
               value={form.category}
               onChange={(event) => onChange('category', event.target.value)}
-              placeholder="e.g. Food"
-            />
-            <datalist id="category-options">
-              {categories.map((category) => <option key={category} value={category} />)}
-            </datalist>
+              disabled={categories.length === 0}
+            >
+              <option value="" disabled>Select a category</option>
+              {categories.map((category) => <option key={category} value={category}>{category}</option>)}
+            </select>
+            {categories.length === 0 && <em>Add a category above before recording a transaction.</em>}
           </label>
           <label className="field">
             <span>Date</span>
